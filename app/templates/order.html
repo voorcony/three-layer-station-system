@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a73e8">
+    <title>{{ order.product_name }} - Secure Checkout</title>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            background: #ffffff;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+        }
+
+        /* Product Image */
+        .product-image-wrapper {
+            width: 100%;
+            background: #fafafa;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .product-image-wrapper img {
+            width: 100%;
+            height: auto;
+            display: block;
+            object-fit: cover;
+            max-height: 380px;
+        }
+
+        /* Product Info */
+        .product-info {
+            padding: 20px 20px 16px;
+        }
+
+        .product-name {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1d1d1f;
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+
+        .product-spec {
+            font-size: 15px;
+            color: #86868b;
+            margin-bottom: 12px;
+        }
+
+        .price-row {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .price-amount {
+            font-size: 28px;
+            font-weight: 800;
+            color: #1d1d1f;
+        }
+
+        .price-currency {
+            font-size: 18px;
+            font-weight: 600;
+            color: #86868b;
+        }
+
+        /* Divider */
+        .divider {
+            border: none;
+            border-top: 1px solid #e8e8ed;
+            margin: 0 20px;
+        }
+
+        /* Trust Badges */
+        .trust-badges {
+            padding: 18px 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 16px;
+        }
+
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #515154;
+        }
+
+        .trust-badge svg {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+        }
+
+        .trust-badge .badge-text {
+            line-height: 1.3;
+        }
+
+        /* Order Summary */
+        .order-summary {
+            padding: 4px 20px 16px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #515154;
+            padding: 4px 0;
+        }
+
+        .summary-row.total {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1d1d1f;
+            padding-top: 10px;
+            margin-top: 8px;
+            border-top: 1px solid #e8e8ed;
+        }
+
+        /* CTA Button */
+        .cta-section {
+            padding: 0 20px 16px;
+        }
+
+        .cta-button {
+            display: block;
+            width: 100%;
+            padding: 16px 24px;
+            background: #34c759;
+            color: #ffffff;
+            font-size: 17px;
+            font-weight: 700;
+            text-align: center;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.1s ease;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .cta-button:active {
+            transform: scale(0.98);
+            background: #2db84e;
+        }
+
+        .cta-button:hover {
+            background: #2db84e;
+        }
+
+        .cta-button:disabled {
+            background: #a1a1a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .cta-button .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+
+        .cta-button.loading .button-text {
+            display: none;
+        }
+
+        .cta-button.loading .loading-spinner {
+            display: block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .cta-subtext {
+            text-align: center;
+            font-size: 12px;
+            color: #86868b;
+            margin-top: 10px;
+        }
+
+        /* Payment Methods */
+        .payment-methods {
+            padding: 8px 20px 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .payment-methods svg {
+            height: 24px;
+            opacity: 0.6;
+        }
+
+        .payment-methods span {
+            font-size: 12px;
+            color: #86868b;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 16px 20px 32px;
+            text-align: center;
+            font-size: 12px;
+            color: #a1a1a6;
+        }
+
+        .footer .lock-icon {
+            display: inline-block;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+
+        /* Error Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff3b30;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 90%;
+        }
+
+        .toast.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        /* Responsive fine-tuning */
+        @media (min-width: 481px) {
+            .container {
+                border-radius: 16px;
+                margin: 20px auto;
+                min-height: auto;
+                overflow: hidden;
+            }
+            body {
+                background: #e8e8ed;
+            }
+            .product-image-wrapper img {
+                max-height: 420px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Product Image -->
+        <div class="product-image-wrapper">
+            <img src="{{ order.product_image_url }}"
+                 alt="{{ order.product_name }}"
+                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22480%22 height=%22380%22><rect fill=%22%23f0f0f0%22 width=%22480%22 height=%22380%22/><text x=%22240%22 y=%22190%22 text-anchor=%22middle%22 fill=%22%23ccc%22 font-size=%2220%22 font-family=%22sans-serif%22>Product Image</text></svg>'">
+        </div>
+
+        <!-- Product Info -->
+        <div class="product-info">
+            <h1 class="product-name">{{ order.product_name }}</h1>
+            {% if order.product_spec %}
+            <p class="product-spec">{{ order.product_spec }}</p>
+            {% endif %}
+            <div class="price-row">
+                <span class="price-currency">$</span>
+                <span class="price-amount">{{ "%.2f"|format(order.price) }}</span>
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Trust Badges -->
+        <div class="trust-badges">
+            <div class="trust-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                <span class="badge-text">Secure Checkout</span>
+            </div>
+            <div class="trust-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <span class="badge-text">30-Day Guarantee</span>
+            </div>
+            <div class="trust-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#ff9500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span class="badge-text">Express Shipping</span>
+            </div>
+            <div class="trust-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#5856d6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+                <span class="badge-text">Insured Delivery</span>
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Order Summary -->
+        <div class="order-summary">
+            <div class="summary-row">
+                <span>Subtotal</span>
+                <span>${{ "%.2f"|format(order.price) }}</span>
+            </div>
+            <div class="summary-row">
+                <span>Shipping</span>
+                <span>FREE</span>
+            </div>
+            <div class="summary-row total">
+                <span>Total</span>
+                <span>${{ "%.2f"|format(order.price) }} USD</span>
+            </div>
+        </div>
+
+        <!-- CTA Button -->
+        <div class="cta-section">
+            <button id="checkoutBtn" class="cta-button" onclick="proceedToCheckout()">
+                <span class="button-text">Proceed to Secure Checkout</span>
+                <div class="loading-spinner"></div>
+            </button>
+            <p class="cta-subtext">🔒 Your payment is encrypted and secure</p>
+        </div>
+
+        <!-- Payment Methods -->
+        <div class="payment-methods">
+            <svg viewBox="0 0 48 16" width="48" height="16" fill="#1a1f71">
+                <rect width="48" height="16" rx="2" fill="#f0f0f0"/>
+                <text x="8" y="12" font-size="10" font-weight="bold" fill="#1a1f71">VISA</text>
+            </svg>
+            <svg viewBox="0 0 48 16" width="48" height="16" fill="#f79e1b">
+                <rect width="48" height="16" rx="2" fill="#f0f0f0"/>
+                <text x="4" y="12" font-size="7" font-weight="bold" fill="#f79e1b">Mastercard</text>
+            </svg>
+            <svg viewBox="0 0 48 16" width="48" height="16" fill="#0079c1">
+                <rect width="48" height="16" rx="2" fill="#f0f0f0"/>
+                <text x="6" y="12" font-size="9" font-weight="bold" fill="#0079c1">Amex</text>
+            </svg>
+            <svg viewBox="0 0 48 16" width="48" height="16" fill="#003087">
+                <rect width="48" height="16" rx="2" fill="#f0f0f0"/>
+                <text x="4" y="12" font-size="8" font-weight="bold" fill="#003087">PayPal</text>
+            </svg>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <span class="lock-icon">🔒</span>
+            SSL Secure | 256-bit Encryption
+        </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="errorToast" class="toast"></div>
+
+    <script>
+        const ORDER_ID = "{{ order_id }}";
+        const CHECKOUT_API_URL = "/api/checkout/" + ORDER_ID;
+
+        function showError(message) {
+            const toast = document.getElementById('errorToast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(function() {
+                toast.classList.remove('show');
+            }, 4000);
+        }
+
+        function proceedToCheckout() {
+            const btn = document.getElementById('checkoutBtn');
+            if (btn.classList.contains('loading')) return;
+
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            fetch(CHECKOUT_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    return response.json().then(function(data) {
+                        throw new Error(data.detail || 'Failed to create checkout');
+                    });
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.checkout_url) {
+                    window.location.href = data.checkout_url;
+                } else {
+                    throw new Error('No checkout URL returned');
+                }
+            })
+            .catch(function(error) {
+                console.error('Checkout error:', error);
+                showError(error.message || 'Something went wrong. Please try again.');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>
