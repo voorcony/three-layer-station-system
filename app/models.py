@@ -5,7 +5,7 @@ from typing import Optional
 class OrderCreateRequest(BaseModel):
     product_name: str
     product_spec: Optional[str] = ""
-    product_image_url: str
+    product_image_url: Optional[str] = ""
     price: float
     customer_name: Optional[str] = ""
     customer_phone: Optional[str] = ""
