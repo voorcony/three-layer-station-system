@@ -22,7 +22,6 @@ class CheckoutResponse(BaseModel):
 
 class ShopPayload(BaseModel):
     """
-
     Shopify webhook payload is raw JSON; we only extract needed fields.
     """
     id: Optional[int] = None
@@ -32,3 +31,13 @@ class ShopPayload(BaseModel):
     total_price: Optional[str] = None
     customer: Optional[dict] = None
     line_items: Optional[list] = None
+
+
+class AdminOrderUpdate(BaseModel):
+    status: Optional[str] = None
+    tracking_number: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class AdminStatusUpdate(BaseModel):
+    status: str
