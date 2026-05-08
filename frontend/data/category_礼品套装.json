@@ -1,0 +1,95 @@
+[
+  {
+    "id": 1,
+    "name": "奢华礼品套装",
+    "type": "variable",
+    "description": "精选高端礼品套装，多种档次可选",
+    "images": [],
+    "categories": [
+      "礼品套装"
+    ],
+    "attributes": [
+      {
+        "name": "档次",
+        "options": [
+          "标准",
+          "豪华",
+          "尊享"
+        ],
+        "variation": true
+      },
+      {
+        "name": "包装",
+        "options": [
+          "简约",
+          "礼盒",
+          "精装",
+          "限定版"
+        ],
+        "variation": true
+      }
+    ],
+    "variants": [
+      {
+        "id": 101,
+        "sku": "SET-A",
+        "price": 99,
+        "stock_status": "instock",
+        "attributes": {
+          "档次": "标准",
+          "包装": "简约"
+        }
+      },
+      {
+        "id": 102,
+        "sku": "SET-B",
+        "price": 149,
+        "stock_status": "instock",
+        "attributes": {
+          "档次": "标准",
+          "包装": "礼盒"
+        }
+      },
+      {
+        "id": 103,
+        "sku": "SET-C",
+        "price": 199,
+        "stock_status": "instock",
+        "attributes": {
+          "档次": "豪华",
+          "包装": "礼盒"
+        }
+      },
+      {
+        "id": 104,
+        "sku": "SET-D",
+        "price": 299,
+        "stock_status": "instock",
+        "attributes": {
+          "档次": "豪华",
+          "包装": "精装"
+        }
+      },
+      {
+        "id": 105,
+        "sku": "SET-E",
+        "price": 499,
+        "stock_status": "instock",
+        "attributes": {
+          "档次": "尊享",
+          "包装": "精装"
+        }
+      },
+      {
+        "id": 106,
+        "sku": "SET-F",
+        "price": 999,
+        "stock_status": "instock",
+        "attributes": {
+          "档次": "尊享",
+          "包装": "限定版"
+        }
+      }
+    ]
+  }
+]

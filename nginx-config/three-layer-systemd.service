@@ -1,0 +1,16 @@
+[Unit]
+Description=Three-Layer Station System (B站)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/three-layer-stations
+EnvironmentFile=/opt/three-layer-stations/.env
+ExecStart=/opt/three-layer-stations/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2 --log-level info
+Restart=always
+RestartSec=5
+Environment=PYTHONPATH=/opt/three-layer-stations
+
+[Install]
+WantedBy=multi-user.target

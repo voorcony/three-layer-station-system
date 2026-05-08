@@ -1,0 +1,58 @@
+server {
+    listen 8091;
+    server_name _;
+
+    root /var/www/landing;
+    index landing.html;
+
+    charset utf-8;
+    access_log /var/log/nginx/landing-access.log;
+
+    # Anti-crawler: UA detection
+    set $bot_detected 0;
+    if ($http_user_agent ~* "(facebookexternalhit|Facebot|Meta-ExternalAgent|MetaInspector|facebookcatalog|scrapingbot)") {
+        set $bot_detected 1;
+    }
+    if ($http_user_agent ~* "(Googlebot|Bingbot|GPTBot|CCBot|ClaudeBot|curl|wget|python|java|Go-http-client|scrapy|phantomjs|headlesschrome|selenium)") {
+        set $bot_detected 1;
+    }
+
+    location / {
+        if ($bot_detected = 1) {
+            rewrite ^ /review.html break;
+        }
+        try_files $uri $uri/ /landing.html;
+    }
+
+    location /data/ {
+        add_header Cache-Control "public, max-age=60";
+    }
+    location /js/ {
+        add_header Cache-Control "public, max-age=3600, immutable";
+    }
+    location /css/ {
+        add_header Cache-Control "public, max-age=3600, immutable";
+    }
+    location /fonts/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    location /api/ {
+        allow 127.0.0.1;
+        deny all;
+        proxy_pass http://127.0.0.1:8099;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /wc-admin/ {
+        allow 127.0.0.1;
+        deny all;
+        proxy_pass http://127.0.0.1:8080;
+    }
+
+    gzip on;
+    gzip_types text/html text/css application/javascript application/json;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+}

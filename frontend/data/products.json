@@ -1,0 +1,117 @@
+{
+  "page_title": "奢华礼品精选",
+  "page_subtitle": "精选高端礼品，为您尊贵的客户",
+  "last_updated": "2026-05-09T13:00:00+08:00",
+  "total_products": 2,
+  "products": [
+    {
+      "id": 12,
+      "name": "奢华礼品套装",
+      "slug": "luxury-gift-set",
+      "type": "variable",
+      "description": "精选高端礼品套装，多种档次可选",
+      "images": [],
+      "categories": [
+        "礼品套装"
+      ],
+      "attributes": [
+        {
+          "name": "档次",
+          "options": [
+            "标准",
+            "豪华",
+            "尊享"
+          ],
+          "variation": true
+        },
+        {
+          "name": "包装",
+          "options": [
+            "简约",
+            "礼盒",
+            "精装",
+            "限定版"
+          ],
+          "variation": true
+        }
+      ],
+      "variants": [
+        {
+          "id": 13,
+          "sku": "SET-A",
+          "price": 99,
+          "stock_status": "instock",
+          "attributes": {
+            "档次": "标准",
+            "包装": "简约"
+          }
+        },
+        {
+          "id": 14,
+          "sku": "SET-B",
+          "price": 149,
+          "stock_status": "instock",
+          "attributes": {
+            "档次": "标准",
+            "包装": "礼盒"
+          }
+        },
+        {
+          "id": 15,
+          "sku": "SET-C",
+          "price": 199,
+          "stock_status": "instock",
+          "attributes": {
+            "档次": "豪华",
+            "包装": "礼盒"
+          }
+        },
+        {
+          "id": 16,
+          "sku": "SET-D",
+          "price": 299,
+          "stock_status": "instock",
+          "attributes": {
+            "档次": "豪华",
+            "包装": "精装"
+          }
+        },
+        {
+          "id": 17,
+          "sku": "SET-E",
+          "price": 499,
+          "stock_status": "instock",
+          "attributes": {
+            "档次": "尊享",
+            "包装": "精装"
+          }
+        },
+        {
+          "id": 18,
+          "sku": "SET-F",
+          "price": 999,
+          "stock_status": "instock",
+          "attributes": {
+            "档次": "尊享",
+            "包装": "限定版"
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "精美手表",
+      "slug": "watch-001",
+      "type": "simple",
+      "description": "经典设计，精工品质",
+      "images": [],
+      "categories": [
+        "手表"
+      ],
+      "price": 299,
+      "regular_price": 299,
+      "stock_status": "instock",
+      "sku": "WATCH-001"
+    }
+  ]
+}

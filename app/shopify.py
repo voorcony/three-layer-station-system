@@ -3,6 +3,7 @@ import json
 import logging
 import hashlib
 import hmac
+from math import ceil
 from typing import Optional
 
 import httpx
@@ -321,10 +322,34 @@ async def get_variant_for_checkout(price: float) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Unit-price helpers
+# ---------------------------------------------------------------------------
+def calculate_price_match(price: float, unit_price=None) -> dict:
+    if unit_price is None:
+        unit_price = os.getenv('UNIT_PRICE', 99)
+    qty = ceil(price / float(unit_price))
+    total_before = qty * float(unit_price)
+    discount = round(total_before - price, 2)
+    return {
+        'qty': qty,
+        'unit_price': float(unit_price),
+        'total_before': total_before,
+        'discount': discount,
+    }
+
+
+def get_unit_variant_gid() -> str:
+    gid = os.getenv('UNIT_VARIANT_GID', '')
+    if not gid:
+        raise Exception('UNIT_VARIANT_GID not configured')
+    return gid
+
+
+# ---------------------------------------------------------------------------
 # Cart / checkout creation
 # ---------------------------------------------------------------------------
 async def create_checkout_cart(
-    variant_gid: str, order_id: str, quantity: int = 1
+    variant_gid: str, order_id: str, quantity: int = 1, discount_code: Optional[str] = None
 ) -> dict:
     """Create a Shopify cart with the given variant and return checkout URL."""
     create_mutation = """
@@ -353,6 +378,8 @@ async def create_checkout_cart(
             "note": f"Order Reference: {order_id}",
         }
     }
+    if discount_code:
+        variables["input"]["discountCodes"] = [discount_code]
 
     result = await _storefront_query(create_mutation, variables)
     cart_data = result.get("data", {}).get("cartCreate", {})

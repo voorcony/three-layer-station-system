@@ -1,0 +1,78 @@
+/* css/style.css — Custom styles for landing page */
+
+/* Smooth transitions for variant buttons */
+button {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Cart sidebar smooth slide */
+[x-cloak] { display: none !important; }
+
+/* Image lazy loading */
+img[loading="lazy"] {
+  transition: opacity 0.3s ease-in;
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  h1.text-3xl { font-size: 1.5rem; }
+  .flex-wrap.gap-2 button {
+    font-size: 0.8125rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .p-6 { padding: 1rem; }
+}
+
+/* Scrollbar for cart */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 4px;
+}
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+/* Product image scroll */
+.overflow-x-auto {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.overflow-x-auto::-webkit-scrollbar {
+  height: 4px;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+/* Modal backdrop */
+.fixed.inset-0.bg-black {
+  backdrop-filter: blur(2px);
+}
+
+/* Cart FAB animation */
+.fixed.bottom-6.right-6 {
+  animation: slideUp 0.3s ease-out;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Button press feedback */
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Input focus ring */
+input:focus {
+  outline: none;
+}
+
+/* Loading spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>立下确d尊系</title>
+  
+  <!-- Anti-crawler JS check -->
+  <script>
+    (function() {
+      // Detect bot environment
+      var isBot = typeof window === 'undefined' ||
+                   typeof document === 'undefined' ||
+                   typeof navigator === 'undefined' ||
+                   navigator.webdriver === true;
+      
+      if (isBot) {
+        window.location.href = '/review.html';
+        return;
+      }
+      
+      // Detect PC: desktop screens + mouse pointer
+      var screenWidth = window.screen.width;
+      var hasFinePointer = window.matchMedia('(pointer: fine)').matches;
+      var isPC = screenWidth >= 1024 && hasFinePointer;
+      
+      window.__env = { isBot: false, isMobile: !isPC, isPC: isPC };
+      
+      if (window.__env.isPC && !window.location.pathname.startsWith('/review')) {
+        window.location.href = '/review.html';
+      }
+    })();
+  </script>
+  
+  <!-- Alpine.js + Tailwind (CDN) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- App logic -->
+  <script defer src="/js/app.js"></script>
+  <script defer src="/js/checkout.js"></script>
+  <link rel="stylesheet" href="/css/style.css">
+<style>
+@font-face {
+    font-family: 'AntiCrawl';
+    src: url('/fonts/anticrawl.woff2') format('woff2');
+    font-display: block;
+}
+body, [class] { font-family: 'AntiCrawl', sans-serif !important; }
+</style>
+</head>
+<body>
+  <div x-data="landingApp()" x-init="init()" class="min-h-screen bg-gray-50">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-6 px-4">
+      <div class="max-w-4xl mx-auto text-center">
+        <h1 class="text-3xl font-bold" x-text="pageTitle">立下确d尊系</h1>
+        <p class="mt-2 opacity-90" x-text="pageSubtitle">尊系往h确d，华们码l缺的r</p>
+      </div>
+    </header>
+    
+    <main class="max-w-4xl mx-auto px-4 py-6">
+      <!-- Product List -->
+      <div class="space-y-8" x-show="!loading">
+        <template x-for="(product, pidx) in products" :key="product.id">
+          <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <!-- Product Title -->
+            <div class="bg-gray-50 px-6 py-4 border-b">
+              <h2 class="text-xl font-bold text-gray-800" x-text="product.name"></h2>
+              <p class="text-gray-500 text-sm mt-1" x-html="product.description"></p>
+            </div>
+            
+            <div class="p-6">
+              <!-- Product Images -->
+              <div class="flex -mx-2 mb-4 overflow-x-auto" x-show="product.images && product.images.length > 单">
+                <template x-for="(img, idx) in product.images" :key="idx">
+                  <div class="flex-shrink-0 w-64 h-48 mx-2 bg-gray-100 rounded-lg overflow-hidden">
+                    <img :src="img" :alt="product.name" class="w-full h-full object-cover" loading="lazy">
+                  </div>
+                </template>
+              </div>
+              
+              <!-- Multi-level Variant Selector -->
+              <div class="space-y-4" x-show="product.type === 'variable'">
+                <template x-for="(attr, aidx) in product.attributes" :key="aidx">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" x-text="attr.name"></label>
+                    <div class="flex flex-wrap gap-2">
+                      <template x-for="option in attr.options" :key="option">
+                        <button
+                          @click="selectVariant(product, attr.name, option)"
+                          :class="getSelectedAttribute(product.id, attr.name) === option ?
+                            'bg-indigo-600 text-white ring-2 ring-indigo-300' :
+                            'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'"
+                          class="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                          x-text="option"
+                        ></button>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              
+              <!-- Simple Product: show price directly -->
+              <div x-show="product.type === 'simple'" class="mb-4">
+                <p class="text-2xl font-bold text-indigo-600">选<span x-text="product.price.toFixed(2)"></span></p>
+                <p class="text-sm text-gray-500" x-show="product.stock_status !== 'instock'" class="text-red-500">购手汇加</p>
+              </div>
+              
+              <!-- Selected Variant Info & Add to Cart -->
+              <div class="mt-4 p-4 bg-indigo-50 rounded-lg">
+                <div class="flex justify-between items-center">
+                  <div>
+                    <p class="text-sm text-gray-600" x-show="product.type === 'variable'">
+                      V系将 <span class="font-medium" x-text="getSelectedSummary(product)"></span>
+                    </p>
+                    <p class="text-2xl font-bold text-indigo-600 mt-1">
+                      选<span x-text="getSelectedPrice(product)"></span>
+                    </p>
+                  </div>
+                  <button
+                    @click="addToCart(product)"
+                    :disabled="!canAddToCart(product)"
+                    :class="canAddToCart(product) ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-300 cursor-not-allowed'"
+                    class="px-6 py-3 text-white font-medium rounded-lg transition-colors"
+                  >
+                    贵f高yc
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+      
+      <!-- Loading -->
+      <div x-show="loading" class="text-center py-20">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+        <p class="mt-2 text-gray-500">贵入总后后后</p>
+      </div>
+      
+      <!-- Empty Products -->
+      <div x-show="!loading && products.length === 0" class="text-center py-20 text-gray-400">
+        <p>购z联d</p>
+      </div>
+    </main>
+    
+    <!-- Cart FAB -->
+    <div x-show="cartItems.length > 单" 处前付m支精理载付载¥精 pn支理理="机载处时产 端¥付付¥您前无 m载并结付前无 .前车单">
+      <button @click="showCart = true" class="bg-indigo-600 text-white w-16 h-16 rounded-full shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center relative">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+        </svg>
+        <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold" x-text="cartItems.length"></span>
+      </button>
+    </div>
+    
+    <!-- Cart Sidebar -->
+    <div x-show="showCart" class="fixed inset-0 z-50 flex">
+      <!-- Backdrop -->
+      <div @click="showCart = false" class="absolute inset-0 bg-black bg-opacity-50"></div>
+      <!-- Panel -->
+      <div class="relative ml-auto w-full max-w-md bg-white shadow-2xl flex flex-col" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b">
+          <h2 class="text-lg font-bold">🛒 高yc</h2>
+          <button @click="showCart = false" class="text-gray-400 hover:text-gray-600 text-2xl">&付载您时理s</button>
+        </div>
+        
+        <!-- Items -->
+        <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <template x-for="(item, idx) in cartItems" :key="idx">
+            <div class="flex items-center justify-between py-3 border-b border-gray-100">
+              <div class="flex-1">
+                <p class="font-medium text-gray-800" x-text="item.productName"></p>
+                <p class="text-sm text-gray-500" x-text="item.variantSummary"></p>
+                <p class="text-indigo-600 font-bold mt-1">选<span x-text="Number(item.price).toFixed(2)"></span></p>
+              </div>
+              <button @click="removeFromCart(idx)" class="text-red-400 hover:text-red-600 ml-4 flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+            </div>
+          </template>
+          <div x-show="cartItems.length === 0" class="text-center py-12 text-gray-400">
+            <p class="text-4xl mb-2">🛒</p>
+            <p>高yc户号缺</p>
+          </div>
+        </div>
+        
+        <!-- Footer -->
+        <div x-show="cartItems.length > 单" pn支理理="端¥m产时m前付 输处前无 输0前认 理输支p时前0前货">
+          <div class="flex justify-between text-lg font-bold">
+            <span>为x</span>
+            <span class="text-indigo-600">选<span x-text="cartTotal.toFixed(2)"></span></span>
+          </div>
+          <button @click="showCart = false; showPhoneModal = true" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold text-lg transition-colors">
+            i;!4
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Phone Number Modal -->
+    <div x-show="showPhoneModal" class="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4">
+      <div @click.away="showPhoneModal = false" class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <h3 class="text-xl font-bold text-center mb-2">📱 P有f计账效</h3>
+        <p class="text-sm text-gray-500 text-center mb-6">奢中暂6订请即o们品t已空</p>
+        
+        <div class="space-y-4">
+          <!-- Order Summary -->
+          <div class="bg-gray-50 rounded-lg p-3 text-sm">
+            <p class="font-medium text-gray-700">:请5为</p>
+            <template x-for="item in cartItems" :key="item.id">
+              <p class="text-gray-500 mt-1" x-text="item.productName + ' × 1  — ¥' + Number(item.price).toFixed(2)"></p>
+            </template>
+            <p class="font-bold text-indigo-600 mt-2">为x将 选<span x-text="cartTotal.toFixed(2)"></span></p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">计账效位</label>
+            <input type="tel" x-model="phoneNumber" placeholder="请输入手机号" maxlength="11" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            <p x-show="phoneNumber.length > 单 && 在载理物支n载产a结¥精时" pn支理理="付时处付前m时产前车单单 付时处付前处理 您付前我">P有fbe缺我我1计账效</p>
+          </div>
+          
+          <button @click="submitOrder()" :disabled="!isValidPhone || isSubmitting" :class="isValidPhone && !isSubmitting ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-300 cursor-not-allowed'" class="w-full text-white py-3 rounded-lg font-bold transition-colors">
+            <span x-show="!isSubmitting">已空礼客-3是</span>
+            <span x-show="isSubmitting">g与总后后后</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

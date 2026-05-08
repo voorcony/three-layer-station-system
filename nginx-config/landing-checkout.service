@@ -1,0 +1,15 @@
+[Unit]
+Description=Landing Checkout API
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/landing-backend
+Environment=SHOPIFY_STORE=147xvt-jc.myshopify.com
+Environment=SHOPIFY_STOREFRONT_TOKEN=your_token_here
+ExecStart=/home/ubuntu/landing-backend/venv/bin/python -m uvicorn checkout_api:app --host 127.0.0.1 --port 8099
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

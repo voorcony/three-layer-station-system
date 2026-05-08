@@ -6,7 +6,7 @@ class OrderCreateRequest(BaseModel):
     product_name: str
     product_spec: Optional[str] = ""
     product_image_url: Optional[str] = ""
-    price: float
+    price: float  # 订单金额/A站价格
     customer_name: Optional[str] = ""
     customer_phone: Optional[str] = ""
 
@@ -14,10 +14,17 @@ class OrderCreateRequest(BaseModel):
 class OrderResponse(BaseModel):
     order_id: str
     page_url: str
+    unit_quantity: int = 0
+    unit_price: float = 99.0
+    discount_amount: float = 0.0
 
 
 class CheckoutResponse(BaseModel):
     checkout_url: str
+    discount_code: str = ''
+    unit_quantity: int = 0
+    unit_price: float = 99.0
+    discount_amount: float = 0.0
 
 
 class ShopPayload(BaseModel):

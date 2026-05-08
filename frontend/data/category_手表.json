@@ -1,0 +1,15 @@
+[
+  {
+    "id": 2,
+    "name": "精美手表",
+    "type": "simple",
+    "description": "经典设计，精工品质",
+    "images": [],
+    "categories": [
+      "手表"
+    ],
+    "price": 299,
+    "stock_status": "instock",
+    "sku": "WATCH-001"
+  }
+]
