@@ -1,124 +1,142 @@
-# Shopify "Luxury Gift Collection" Product Setup Guide
+# Shopify 单位商品配置指南 (v3)
 
-## Why This Is Needed
+## 概述
 
-The Admin API token is invalid (returns 401 for all API versions and endpoints). Therefore, you need to **manually create** the "Luxury Gift Collection" product in Shopify Admin.
+三层站群 v3 不再使用 "Luxury Gift Collection" 多变体商品。新方案的核心是一个**固定单价的商品**，通过**数量 + 折扣码**来匹配 A 站订单金额。
 
-Once created, the system will auto-detect it at startup and use its 20 variants for dynamic pricing.
-
-## Step-by-Step Instructions
-
-### 1. Log into Shopify Admin
-
-Go to: https://147xvt-jc.myshopify.com/admin
-
-### 2. Create a New Product
-
-1. Click **Products** → **Add product**
-2. Set **Title** to: `Luxury Gift Collection`
-3. Set **Description** to (copy-paste this):
+### 逻辑
 
 ```
-# Luxury Gift Collection
-
-Experience the pinnacle of elegance with our Luxury Gift Collection. Each tier is meticulously curated to offer an unforgettable unboxing experience.
-
-## Why Choose Our Gift Collection?
-
-🎁 **Premium Presentation** – Every gift arrives in a handcrafted, piano-finished luxury gift box with magnetic closure and velvet interior.
-
-✨ **Guaranteed Quality** – Each item is inspected and certified before dispatch. Your satisfaction is 100% guaranteed.
-
-🚚 **Express Worldwide Shipping** – Tracked and insured delivery to your doorstep.
-
-🔒 **Secure Payment** – All transactions are encrypted and processed securely.
-
-## The Perfect Gift
-
-Whether it's for a birthday, anniversary, corporate event, or just because — our Luxury Gift Collection makes every occasion special. Choose your tier below and add a personalized message at checkout.
+A站订单价 = $850
+单价商品 = $99.00/件
+数量     = ceil($850 / $99) = 9 件
+折扣前   = 9 × $99 = $891
+折扣     = $891 - $850 = $41
+客户付   = $891 - $41 = $850 ✓
 ```
 
-4. Set **Media**: Upload a beautiful luxury gift box image. You can find royalty-free images on:
-   - Unsplash: Search "luxury gift box" or "elegant gift"
-   - Pexels: Similar searches
-   - **Recommended**: A dark/black background with gold accents gift box for maximum luxury feel
+---
 
-### 3. Add Pricing Variants
+## 第一步：创建单位商品
 
-Add these **20 variants** one by one. For each variant:
+在 Shopify Admin 中创建一个商品，作为"计价单位"。
 
-1. Scroll to **Pricing** section
-2. Click **Add variant** (you may need to add an option first, e.g., "Tier")
-3. For each variant, set:
-   - **Option value**: `$100 Tier`, `$200 Tier`, etc.
-   - **Price**: The corresponding dollar amount
-   - **SKU**: `LUXURY-100`, `LUXURY-200`, etc. (optional but recommended)
-   - **Inventory**: Check "Track quantity" and set to a high number (999)
+1. **Products → Add product**
+2. **Title**: `Premium Furniture Piece`（或你喜欢的名字）
+3. **Description**: 简洁的商品描述（可选）
+4. **Media**: 上传一张真实的商品图片
+5. **Price**: `$99.00` ← 这就是 UNIT_PRICE
+6. **Status**: Active
 
-Full variant list:
+这个商品是**真实在售的**——如果你真的卖家具，客户收到这个也完全没问题。
 
-| # | Option Value    | Price  |
-|---|-----------------|--------|
-| 1 | $100 Tier       | $100   |
-| 2 | $200 Tier       | $200   |
-| 3 | $300 Tier       | $300   |
-| 4 | $400 Tier       | $400   |
-| 5 | $500 Tier       | $500   |
-| 6 | $600 Tier       | $600   |
-| 7 | $700 Tier       | $700   |
-| 8 | $800 Tier       | $800   |
-| 9 | $900 Tier       | $900   |
-|10 | $1000 Tier      | $1000  |
-|11 | $1100 Tier      | $1100  |
-|12 | $1200 Tier      | $1200  |
-|13 | $1300 Tier      | $1300  |
-|14 | $1400 Tier      | $1400  |
-|15 | $1500 Tier      | $1500  |
-|16 | $1600 Tier      | $1600  |
-|17 | $1700 Tier      | $1700  |
-|18 | $1800 Tier      | $1800  |
-|19 | $1900 Tier      | $1900  |
-|20 | $2000 Tier      | $2000  |
+---
 
-### 4. Set Product Status
+## 第二步：获取 Variant GID
 
-- Set **Status** to **Active** (so it's visible to the Storefront API)
+用 Storefront API 查询商品变体 ID：
 
-### 5. Save the Product
-
-Click **Save**. After saving, note down the **variant IDs** from the URL when editing each variant (e.g., `gid://shopify/ProductVariant/123456789`).
-
-Alternatively, they'll be auto-detected by the system.
-
-### 6. Verify Auto-Detection
-
-Once saved, the system will automatically detect the product on next restart. To verify:
-
-1. Open the admin dashboard: http://43.154.181.44/admin/login
-2. Login with: `admin` / `admin123`
-3. Click "🔄 Refresh Products" in the sidebar
-4. If successful, you'll see a green toast: "Shopify products refreshed!"
-5. New orders will now use the matching variant from $100-$2000 range
-
-Alternatively, you can trigger the refresh via API:
 ```bash
-curl -X POST http://43.154.181.44/api/admin/refresh-shopify-products \
-  -H "Authorization: Basic $(echo -n 'admin:admin123' | base64)"
+# 替换为你的 storefront token
+TOKEN="your_storefront_token"
+STORE="your-store.myshopify.com"
+
+curl -X POST "https://$STORE/api/2024-10/graphql.json" \
+  -H "X-Shopify-Storefront-Access-Token: $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "{
+      products(first: 10) {
+        edges {
+          node {
+            id
+            title
+            variants(first: 10) {
+              edges {
+                node {
+                  id
+                  title
+                  price { amount currencyCode }
+                }
+              }
+            }
+          }
+        }
+      }
+    }"
+  }' | jq
 ```
 
-## Verify It's Working
+找到你的商品，复制 variant 的 `id`（格式：`gid://shopify/ProductVariant/123456789`）。
 
-1. Create a test order for a $750 watch:
+---
+
+## 第三步：配置 .env
+
+```env
+SHOPIFY_STORE=your-store.myshopify.com
+SHOPIFY_STOREFRONT_TOKEN=your_storefront_token
+SHOPIFY_ADMIN_TOKEN=shpat_...   # 需要 write_discounts 权限
+UNIT_PRICE=99
+UNIT_VARIANT_GID=gid://shopify/ProductVariant/123456789
+```
+
+---
+
+## 第四步：验证配置
+
 ```bash
-curl -X POST http://43.154.181.44/api/orders \
+# 创建一个测试订单
+curl -X POST http://localhost:8000/api/orders \
   -H "Content-Type: application/json" \
   -d '{
     "product_name": "Test Watch",
-    "price": 750,
-    "customer_name": "Test User"
+    "price": 850,
+    "customer_name": "Test"
   }'
+
+# 响应示例
+{
+  "order_id": "A3B7X9K2",
+  "page_url": "http://localhost:8000/order/A3B7X9K2",
+  "unit_quantity": 9,
+  "unit_price": 99.0,
+  "discount_amount": 41.0,
+  "total_price": 850.0
+}
+
+# 生成 checkout
+curl -X POST http://localhost:8000/api/checkout/A3B7X9K2
+
+# 响应示例
+{
+  "checkout_url": "https://checkout.shopify.com/...",
+  "discount_code": "ORDER-A3B7X9K2",
+  "unit_quantity": 9,
+  "unit_price": 99.0,
+  "discount_amount": 41.0
+}
 ```
 
-2. The response will show the selected variant — it should pick "$800 Tier" ($800 >= $750, closest match)
+---
 
-3. Open the admin dashboard to see the order with real product mapping
+## 价格匹配表
+
+| A站订单价 | 数量 | 折扣前 | 折扣 | 客户付 |
+|:---------:|:----:|:------:|:----:|:------:|
+| $200 | 3 | $297 | -$97 | $200 |
+| $300 | 4 | $396 | -$96 | $300 |
+| $400 | 5 | $495 | -$95 | $400 |
+| $500 | 6 | $594 | -$94 | $500 |
+| $600 | 7 | $693 | -$93 | $600 |
+| $700 | 8 | $792 | -$92 | $700 |
+| $800 | 9 | $891 | -$91 | $800 |
+| $850 | 9 | $891 | -$41 | $850 |
+| $900 | 10 | $990 | -$90 | $900 |
+| $1,000 | 11 | $1,089 | -$89 | $1,000 |
+| $1,200 | 13 | $1,287 | -$87 | $1,200 |
+| $1,500 | 16 | $1,584 | -$84 | $1,500 |
+| $1,800 | 19 | $1,881 | -$81 | $1,800 |
+| $2,000 | 21 | $2,079 | -$79 | $2,000 |
+
+**注意**: 单价 $99 是测试值。最终可根据 A 站品类选择合适的单位商品价格。理想情况下，`UNIT_PRICE` 应该接近 A 站商品的最低单价，这样 `quantity` 不会太高（建议不超过 20 件，避免客户起疑）。

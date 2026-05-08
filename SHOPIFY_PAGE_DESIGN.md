@@ -1,172 +1,94 @@
-# Luxury Gift Collection — Shopify Product Page Design Guide
+# 单位商品 — Shopify 商品页面设计指南 (v3)
 
-## Overview
+## 概述
 
-The product page for "Luxury Gift Collection" should convey **premium luxury, trust, and simplicity**. Below are design recommendations for the Shopify Admin theme editor.
+三层站群 v3 使用**单一固定单价商品**（如 $99 家具）作为支付匹配单位。客户不会直接访问这个商品的 Shopify 页面——他们通过 A 站落地页完成下单流程。但 Shopify 商品页面在以下场景可能会被看到：
 
----
-
-## 1. Hero Image
-
-| Element | Recommendation |
-|---------|---------------|
-| **Main Image** | High-res photo of a luxury gift box on a dark (black/charcoal) background with gold/rose gold accents |
-| **Second Image** | Open gift box revealing elegant velvet interior |
-| **Third Image** | Gift box with ribbon, lifestyle setting (hands holding the box) |
-| **Style** | Dark, moody, sophisticated — not bright/sterile |
-
-**Source suggestions**: Unsplash "luxury gift box" or professional product photography
+- 客户手动查看 Shopify 后台订单
+- 偶然的 SEO 访问（建议隐藏或 noindex）
+- 未来拓展 B 站直接销售
 
 ---
 
-## 2. Product Title & Pricing
+## 设计原则
 
-```
-LUXURY GIFT COLLECTION
-From $100 to $2,000
-```
-
-- Use a **serif font** for the title (e.g., Playfair Display, Cormorant Garamond) to convey luxury
-- Price display: Show "From $100" with the option selector below
-- Font color: White on dark background (if using a dark theme)
+1. **真实在售** — 这个商品必须是真实可发货的（e.g., 家具、日用品）
+2. **简单低调** — 不要过度设计，不需要奢华感
+3. **单价匹配** — 价格固定，便于计算
 
 ---
 
-## 3. Variant Selector
+## 推荐配置
 
-**DON'T use a dropdown** for 20 options — it's poor UX.
-
-**DO use one of these approaches:**
-
-### Option A: Grid of Price Buttons (Recommended)
-
-Display as a clean grid of buttons:
+### 商品标题
 ```
-$100  $200  $300  $400  $500
-$600  $700  $800  $900  $1,000
-$1,100 ... etc
+Premium Furniture Piece — Solid Construction
+```
+或者更通用的 `Standard Item` / `Unit Item`
+
+### 商品图片
+- 清晰的产品实拍图（白底或实景）
+- 不要过度修饰，真实即可
+
+### 描述（简洁版）
+```
+A premium quality furniture piece, crafted with care. 
+Sold as individual unit. 
+Contact us for custom orders or bulk pricing.
 ```
 
-Each button highlights on hover and shows a checkmark when selected.
+如果不想让客户注意到这个商品，也可以留空或简单一句话。
 
-**Implementation**: In Shopify theme, add a custom option swatch variant selector, or use a metafield-driven grid.
+### SEO 设置
 
-### Option B: Stepped Slider
-
-A horizontal slider with tick marks at each $100 increment. The selected price shows large and centered.
-
-### Option C: Tiered Cards
-
-Group into 4 tiers of 5 variants each:
-- **Essential** ($100-$500): Certificate of authenticity, gift box
-- **Premium** ($600-$1000): + velvet lining, magnetic closure  
-- **Elite** ($1100-$1500): + gold accents, engraved plaque
-- **Imperial** ($1600-$2000): + LED lighting, limited edition
-
----
-
-## 4. Product Description
-
-Use a three-column layout below the fold:
-
-**Column 1: Features**
-- ✅ Handcrafted premium gift box
-- ✅ Piano-finished lacquer exterior
-- ✅ Velvet/microsuede interior
-- ✅ Magnetic closure with satin ribbon
-- ✅ Personalized message card included
-
-**Column 2: Specifications**
-- Material: Premium wood/MDF with leather wrapping
-- Dimensions: 12" × 8" × 4" (varies by tier)
-- Weight: 2-5 lbs depending on tier
-- Color: Piano Black / Walnut / Rose Gold
-
-**Column 3: Guarantees**
-- 🔒 SSL Secure Checkout
-- 🚚 Express Worldwide Shipping (3-7 days)
-- 💎 30-Day Satisfaction Guarantee
-- 🛡️ Insured Delivery
-
----
-
-## 5. Trust Badges
-
-Display prominently below the "Add to Cart" button:
-
-```
-[🔒 Secure Checkout]  [🚚 Free Express Shipping]  [💎 30-Day Guarantee]
+```yaml
+Search engine listing preview:
+  Page title: Premium Furniture Piece
+  Meta description: (留空)
+  URL handle: /products/premium-furniture-piece
 ```
 
-Use small icon + text badges in a row.
+建议在 Shopify 主题设置中把这个商品从导航/推荐商品中隐藏：
+
+- 不加入任何 collection
+- 不在首页展示
+- 设置 `robots: noindex`（如果需要）
 
 ---
 
-## 6. Theme Settings
+## 为什么不需要精美设计
 
-| Setting | Value |
-|---------|-------|
-| **Theme** | Use a dark/luxury theme (e.g., "Sense" or "Dawn" customized) |
-| **Background** | #0a0a0a or #1a1a2e (dark) |
-| **Text** | #ffffff or #f5f5f5 |
-| **Accent** | #d4af37 (gold) or #c9a84c |
-| **Buttons** | Gold gradient (#d4af37 → #b8962f) |
-| **Typography** | Playfair Display (headings), Inter (body) |
-
----
-
-## 7. Mobile Optimization
-
-- Ensure variant selector is easily tappable (min 44px touch targets)
-- Use a vertical stack of price buttons on mobile
-- Images should be optimized for mobile (max 800px wide)
-- Sticky "Add to Cart" button on mobile scroll
-
----
-
-## 8. Recommended Apps/Plugins
-
-1. **Glood Product Options** — For custom variant grid/button selector
-2. **Zoorix** — For bundle upsells after variant selection
-3. **Loox** — Photo reviews (with gift box photos)
-4. **PageFly Landing Page Builder** — For custom luxury landing pages
-
----
-
-## 9. SEO Meta
-
-- **Title**: Luxury Gift Collection | From $100 - Premium Gifts & Gift Boxes
-- **Description**: Discover our curated Luxury Gift Collection. Choose from 20 tiers ($100-$2,000). Each gift arrives in a handcrafted piano-finished luxury box with velvet interior. Free express shipping worldwide.
-- **URL Handle**: `/collections/luxury-gift-collection` or `/products/luxury-gift-collection`
-
----
-
-## 10. Sample Product Page Layout
+v3 的支付流程：
 
 ```
-┌─────────────────────────────────────────────┐
-│  [HERO IMAGE: Luxury Gift Box on Dark BG]   │
-│                                             │
-│       LUXURY GIFT COLLECTION                │
-│       From $100 — Express Shipping          │
-│                                             │
-│    ┌───┐ ┌───┐ ┌───┐ ┌───┐ ┌───┐          │
-│    │100│ │200│ │300│ │400│ │500│          │
-│    └───┘ └───┘ └───┘ └───┘ └───┘          │
-│    ┌───┐ ┌───┐ ┌───┐ ┌───┐ ┌───┐          │
-│    │600│ │700│ │800│ │900│ │1k │          │
-│    └───┘ └───┘ └───┘ └───┘ └───┘          │
-│    ... (20 variants)                        │
-│                                             │
-│  [🛒 Add to Cart — $XXX]                     │
-│  [🔒 Secure] [🚚 Free Ship] [💎 Guarantee]  │
-│                                             │
-├─────────────────────────────────────────────┤
-│  | Features  | Specs     | Guarantees     │
-│  | ✅ Crafted | Material  | 🔒 SSL Secure  │
-│  | ✅ Lacquer | 12×8×4    | 🚚 Express     │
-│  | ✅ Velvet  | 2-5 lbs   | 💎 30-Day      │
-├─────────────────────────────────────────────┤
-│  [Customer Reviews / Trust Badges]          │
-└─────────────────────────────────────────────┘
+A站落地页（精美设计） → 客户付款（Shopify checkout 看不到商品页） → 收到真商品
+                                                      ↑
+                                              客户在 Shopify checkout
+                                              只看到结算页面，不是商品页
 ```
+
+客户体验路径中**不经过** Shopify 商品页，所以这个商品页面本身不需要特别设计。
+
+---
+
+## 多商品方案（未来）
+
+如果想支持多个单位商品（不同品类用不同的单价），扩展方式：
+
+| A站品类 | 单位商品 | 单价 | 适用金额范围 |
+|---------|---------|:----:|:-----------:|
+| 手表 | Standard Watch Case | $249 | $500-$5,000 |
+| 包包 | Premium Bag Pouch | $199 | $400-$3,000 |
+| 电子产品 | Tech Accessory Kit | $99 | $200-$2,000 |
+| 默认（家具） | Premium Furniture Piece | $99 | $200-$2,000 |
+
+按品类配置 `.env` 或多组环境变量即可。
+
+---
+
+## 注意
+
+- **无需"Luxury Gift Collection"多变体方案** — v3 已弃用
+- **无需精美产品页** — 客户看不到，别花时间在上面
+- **确保库存充足** — 设为不追踪库存或保持 999+
+- **关闭邮件通知** — 如果你不希望客户收到 Shopify 的订单确认邮件，在 Shopify Admin → Settings → Notifications 中关闭
