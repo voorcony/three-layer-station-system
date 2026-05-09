@@ -609,7 +609,7 @@ async def list_products():
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
-                "http://127.0.0.1:8080/wp-content/products-api.php?action=list",
+                "http://127.0.0.1:8080/wp-content/products-api.php?action=list&category=landing",
                 headers={"X-API-Key": "apk_b9a7c3d1e5f8024679b1a3c5d7e9f0b1"},
             )
             if resp.status_code == 200:
