@@ -1,10 +1,12 @@
 import os
 import json
 import re
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
 
+import httpx
 from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -47,6 +49,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("Failed to initialize cover products: %s", e)
         logger.warning("System will start but checkout may fail until products are available")
+
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            await client.get(
+                "http://127.0.0.1:8080/wp-content/orders-api.php?action=list&limit=1",
+                headers={"X-API-Key": "apk_b9a7c3d1e5f8024679b1a3c5d7e9f0b1"},
+            )
+    except Exception as e:
+        logger.warning("WooCommerce health check failed: %s", e)
+
+    if not os.getenv("SHOPIFY_STOREFRONT_TOKEN", ""):
+        logger.warning("SHOPIFY_STOREFRONT_TOKEN env is empty")
+    if not os.getenv("SHOPIFY_ADMIN_TOKEN", "").startswith("shpat_"):
+        logger.warning("SHOPIFY_ADMIN_TOKEN does not start with 'shpat_'")
+
     yield
     logger.info("Shutting down Three-Layer Station System...")
 
@@ -56,6 +73,20 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def api_key_auth_middleware(request: Request, call_next):
+    if request.url.path == "/health":
+        return await call_next(request)
+
+    expected = os.getenv("API_AUTH_KEY", "apk_b9a7c3d1e5f80")
+    provided = request.headers.get("X-Api-Key", "")
+    if provided != expected:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=401, content={"detail": "Invalid or missing API key"})
+
+    return await call_next(request)
 
 
 # ---------------------------------------------------------------------------
@@ -75,10 +106,28 @@ class CreateOrderRequest(BaseModel):
 @app.get("/health")
 async def health():
     """Health check endpoint."""
+    wc_ok = False
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            resp = await client.get(
+                "http://127.0.0.1:8080/wp-content/orders-api.php?action=list&limit=1",
+                headers={"X-API-Key": "apk_b9a7c3d1e5f8024679b1a3c5d7e9f0b1"},
+            )
+            wc_ok = resp.status_code == 200
+    except Exception as e:
+        logger.warning("WooCommerce health check failed: %s", e)
+        wc_ok = False
+
+    storefront_ok = bool(os.getenv("SHOPIFY_STOREFRONT_TOKEN", ""))
+    admin_ok = os.getenv("SHOPIFY_ADMIN_TOKEN", "").startswith("shpat_")
+    shopify_token_ok = storefront_ok and admin_ok
+
     return {
         "status": "ok",
         "system": "three-layer-stations",
         "version": "2.0.0",
+        "wc": wc_ok,
+        "shopify_token": shopify_token_ok,
     }
 
 
@@ -133,6 +182,7 @@ async def _create_order_and_variant(req: CreateOrderRequest) -> dict:
         "unit_quantity": match["qty"],
         "unit_price": match["unit_price"],
         "discount_amount": match["discount"],
+        "feishu_synced": bool(feishu_rec_id),
     }
 
 
@@ -144,16 +194,43 @@ async def create_order(req: CreateOrderRequest):
 
 @app.post("/api/create_checkout")
 async def create_checkout_from_a_station(req: CreateOrderRequest):
-    """Entry point used by A站: create order and return checkout/variant info."""
-    return await _create_order_and_variant(req)
+    """Entry point used by A站: create order AND Shopify checkout in one call."""
+    order_data = await _create_order_and_variant(req)
+
+    try:
+        checkout_info = await _create_checkout_for_order(req.session_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Order created but checkout creation failed for session %s: %s",
+            req.session_id, e,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Order created but failed to create Shopify checkout: {str(e)}",
+        )
+
+    return {
+        **order_data,
+        "checkout_url": checkout_info.checkout_url,
+        "discount_code": checkout_info.discount_code,
+        "unit_quantity": checkout_info.unit_quantity,
+        "unit_price": checkout_info.unit_price,
+        "discount_amount": checkout_info.discount_amount,
+    }
 
 
 # ---------------------------------------------------------------------------
 # Checkout creation
 # ---------------------------------------------------------------------------
-@app.post("/api/checkout/{session_id}", response_model=CheckoutResponse)
-async def create_checkout(session_id: str):
-    """Create a Shopify checkout for the given order using the unit-price + discount-code flow."""
+async def _create_checkout_for_order(session_id: str) -> CheckoutResponse:
+    """Shared logic: create a Shopify checkout for an existing WC order.
+
+    Performs discount-code creation, Shopify cart creation, persists the
+    checkout URL on the order, and syncs the update to Feishu. If a checkout
+    already exists for this session, the existing URL is returned.
+    """
     order = await wc_get_order(session_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -174,73 +251,77 @@ async def create_checkout(session_id: str):
     unit_price = float(order.get("unit_price") or match["unit_price"] or 99.0)
     discount_amount = float(order.get("discount_amount") or match["discount"] or 0.0)
 
+    code = ""
+    if discount_amount > 0:
+        try:
+            code = f"ORDER-{session_id}"
+            await create_one_time_discount(discount_amount, code)
+            logger.info(
+                "Created one-time discount for session %s: code=%s amount=$%.2f",
+                session_id, code, discount_amount,
+            )
+        except Exception as de:
+            logger.warning(
+                "Discount creation failed for session %s — proceeding without discount. "
+                "Customer will pay $%.2f instead of $%.2f. Error: %s",
+                session_id,
+                qty * unit_price,
+                price,
+                de,
+            )
+            code = ""
+
+    variant_gid = get_unit_variant_gid()
+
+    cart = await create_checkout_cart(
+        variant_gid,
+        session_id,
+        quantity=qty,
+        discount_code=code or None,
+    )
+    checkout_url = cart.get("checkoutUrl")
+    cart_id = cart.get("id")
+
+    if not checkout_url:
+        raise Exception("No checkout URL returned from Shopify")
+
+    await wc_update_order(
+        session_id,
+        status="checkout_created",
+        checkout_url=checkout_url,
+        cart_id=cart_id,
+    )
+
+    await sync_order_updated(
+        session_id=session_id,
+        status="checkout_created",
+        checkout_url=checkout_url,
+        feishu_record_id=order.get("feishu_record_id"),
+    )
+
+    logger.info(
+        "Checkout created for session %s: %s (qty=%d @ $%.2f, discount=%s/$%.2f)",
+        session_id,
+        checkout_url,
+        qty,
+        unit_price,
+        code or "<none>",
+        discount_amount,
+    )
+    return CheckoutResponse(
+        checkout_url=checkout_url,
+        discount_code=code,
+        unit_quantity=qty,
+        unit_price=unit_price,
+        discount_amount=discount_amount,
+    )
+
+
+@app.post("/api/checkout/{session_id}", response_model=CheckoutResponse)
+async def create_checkout(session_id: str):
+    """Create a Shopify checkout for the given order using the unit-price + discount-code flow."""
     try:
-        code = ""
-        if discount_amount > 0:
-            try:
-                code = f"ORDER-{session_id}"
-                await create_one_time_discount(discount_amount, code)
-                logger.info(
-                    "Created one-time discount for session %s: code=%s amount=$%.2f",
-                    session_id, code, discount_amount,
-                )
-            except Exception as de:
-                logger.warning(
-                    "Discount creation failed for session %s — proceeding without discount. "
-                    "Customer will pay $%.2f instead of $%.2f. Error: %s",
-                    session_id,
-                    qty * unit_price,
-                    price,
-                    de,
-                )
-                code = ""
-
-        variant_gid = get_unit_variant_gid()
-
-        cart = await create_checkout_cart(
-            variant_gid,
-            session_id,
-            quantity=qty,
-            discount_code=code or None,
-        )
-        checkout_url = cart.get("checkoutUrl")
-        cart_id = cart.get("id")
-
-        if not checkout_url:
-            raise Exception("No checkout URL returned from Shopify")
-
-        await wc_update_order(
-            session_id,
-            status="checkout_created",
-            checkout_url=checkout_url,
-            cart_id=cart_id,
-        )
-
-        # Sync checkout URL to Feishu
-        await sync_order_updated(
-            session_id=session_id,
-            status="checkout_created",
-            checkout_url=checkout_url,
-            feishu_record_id=order.get("feishu_record_id"),
-        )
-
-        logger.info(
-            "Checkout created for session %s: %s (qty=%d @ $%.2f, discount=%s/$%.2f)",
-            session_id,
-            checkout_url,
-            qty,
-            unit_price,
-            code or "<none>",
-            discount_amount,
-        )
-        return CheckoutResponse(
-            checkout_url=checkout_url,
-            discount_code=code,
-            unit_quantity=qty,
-            unit_price=unit_price,
-            discount_amount=discount_amount,
-        )
-
+        return await _create_checkout_for_order(session_id)
     except HTTPException:
         raise
     except Exception as e:

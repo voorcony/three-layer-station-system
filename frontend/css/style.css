@@ -76,3 +76,28 @@ input:focus {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* Maintenance/error modal */
+.maintenance-modal {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+}
+.maintenance-modal .modal-box {
+  background: #fff; border-radius: 16px; padding: 2rem;
+  max-width: 360px; width: 90%; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: modalIn 0.3s ease-out;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.9) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.maintenance-modal .modal-icon { font-size: 3rem; margin-bottom: 1rem; }
+.maintenance-modal h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: #1a1a1a; }
+.maintenance-modal p { font-size: 0.9375rem; color: #666; margin-bottom: 1.5rem; line-height: 1.5; }
+.maintenance-modal .modal-btn {
+  background: #1a1a1a; color: #fff; border: none; border-radius: 10px;
+  padding: 0.75rem 2rem; font-size: 1rem; cursor: pointer; transition: background 0.2s;
+}
+.maintenance-modal .modal-btn:hover { background: #333; }

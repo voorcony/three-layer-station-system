@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from typing import Any
@@ -14,6 +15,43 @@ _HEADERS = {
     "X-API-Key": WC_API_KEY,
     "Content-Type": "application/json",
 }
+
+_MAX_RETRY_ATTEMPTS = 3
+_RETRY_BACKOFFS = (1, 2, 4)
+
+
+async def _call_with_retry(method: str, url: str, **kwargs: Any) -> httpx.Response:
+    """Issue an HTTP request, retrying only on connection/timeout errors.
+
+    Retries up to 3 attempts with exponential backoff (1s, 2s, 4s) on
+    httpx.TimeoutException and httpx.ConnectError. HTTP error statuses
+    (4xx/5xx) are returned to the caller without retry.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(1, _MAX_RETRY_ATTEMPTS + 1):
+        try:
+            async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
+                return await client.request(method, url, **kwargs)
+        except (httpx.TimeoutException, httpx.ConnectError) as e:
+            last_exc = e
+            if attempt < _MAX_RETRY_ATTEMPTS:
+                backoff = _RETRY_BACKOFFS[attempt - 1]
+                logger.warning(
+                    "WooCommerce 不可用, %ss后重试 (attempt %d/%d)",
+                    backoff,
+                    attempt,
+                    _MAX_RETRY_ATTEMPTS,
+                )
+                await asyncio.sleep(backoff)
+            else:
+                logger.error(
+                    "WooCommerce 不可用, 已达最大重试次数 (attempt %d/%d): %s",
+                    attempt,
+                    _MAX_RETRY_ATTEMPTS,
+                    e,
+                )
+    assert last_exc is not None
+    raise last_exc
 
 
 async def wc_create_order(
@@ -41,13 +79,13 @@ async def wc_create_order(
     logger.debug("WC create payload: %s", json.dumps(payload, default=str))
 
     try:
-        async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
-            resp = await client.post(
-                WC_API_URL,
-                params={"action": "create"},
-                headers=_HEADERS,
-                json=payload,
-            )
+        resp = await _call_with_retry(
+            "POST",
+            WC_API_URL,
+            params={"action": "create"},
+            headers=_HEADERS,
+            json=payload,
+        )
     except httpx.HTTPError as e:
         logger.error("WC create order request failed for session_id=%s: %s", session_id, e)
         raise
@@ -87,12 +125,12 @@ async def wc_get_order(session_id: str) -> dict | None:
     logger.info("WC get order: session_id=%s", session_id)
 
     try:
-        async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
-            resp = await client.get(
-                WC_API_URL,
-                params={"action": "get", "session_id": session_id},
-                headers=_HEADERS,
-            )
+        resp = await _call_with_retry(
+            "GET",
+            WC_API_URL,
+            params={"action": "get", "session_id": session_id},
+            headers=_HEADERS,
+        )
     except httpx.HTTPError as e:
         logger.error("WC get order request failed for session_id=%s: %s", session_id, e)
         return None
@@ -139,13 +177,13 @@ async def wc_update_order(session_id: str, **kwargs: Any) -> dict:
     logger.debug("WC update payload: %s", json.dumps(payload, default=str))
 
     try:
-        async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
-            resp = await client.post(
-                WC_API_URL,
-                params={"action": "update"},
-                headers=_HEADERS,
-                json=payload,
-            )
+        resp = await _call_with_retry(
+            "POST",
+            WC_API_URL,
+            params={"action": "update"},
+            headers=_HEADERS,
+            json=payload,
+        )
     except httpx.HTTPError as e:
         logger.error("WC update order request failed for session_id=%s: %s", session_id, e)
         raise
@@ -184,8 +222,7 @@ async def wc_list_orders(limit: int = 50, status: str = "") -> list[dict]:
     logger.info("WC list orders: limit=%s status=%s", limit, status or "<any>")
 
     try:
-        async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
-            resp = await client.get(WC_API_URL, params=params, headers=_HEADERS)
+        resp = await _call_with_retry("GET", WC_API_URL, params=params, headers=_HEADERS)
     except httpx.HTTPError as e:
         logger.error("WC list orders request failed: %s", e)
         return []
