@@ -442,6 +442,187 @@ async def get_order_api(session_id: str):
     return order
 
 
+_FALLBACK_PRODUCTS = [
+    {
+        "id": 1,
+        "name": "奢华礼品套装",
+        "type": "variable",
+        "description": "精选高端礼品套装",
+        "images": [],
+        "categories": ["礼品套装"],
+        "attributes": [
+            {"name": "档次", "options": ["标准", "豪华", "尊享"], "variation": True},
+            {"name": "包装", "options": ["简约", "礼盒", "精装", "限定版"], "variation": True},
+        ],
+        "variants": [
+            {"id": 101, "sku": "SET-A", "price": 99, "stock_status": "instock",
+             "attributes": {"档次": "标准", "包装": "简约"}},
+            {"id": 102, "sku": "SET-B", "price": 149, "stock_status": "instock",
+             "attributes": {"档次": "标准", "包装": "礼盒"}},
+            {"id": 103, "sku": "SET-C", "price": 199, "stock_status": "instock",
+             "attributes": {"档次": "豪华", "包装": "礼盒"}},
+            {"id": 104, "sku": "SET-D", "price": 299, "stock_status": "instock",
+             "attributes": {"档次": "豪华", "包装": "精装"}},
+            {"id": 105, "sku": "SET-E", "price": 499, "stock_status": "instock",
+             "attributes": {"档次": "尊享", "包装": "精装"}},
+            {"id": 106, "sku": "SET-F", "price": 999, "stock_status": "instock",
+             "attributes": {"档次": "尊享", "包装": "限定版"}},
+        ],
+    },
+    {
+        "id": 2,
+        "name": "精美手表",
+        "type": "simple",
+        "description": "经典设计，精工品质",
+        "images": [],
+        "categories": ["手表"],
+        "price": 299,
+        "stock_status": "instock",
+        "sku": "WATCH-001",
+    },
+]
+
+_WP_CONTAINER = os.getenv("WP_CONTAINER", "b-woocommerce-wp")
+
+
+async def _run_wp_cli(*wp_args: str, timeout: float = 15.0) -> Optional[list]:
+    """Run a wp-cli command in the WooCommerce docker container and parse JSON output.
+
+    Returns the parsed JSON list on success, or None on failure (non-zero exit,
+    timeout, missing docker, or invalid JSON).
+    """
+    cmd = ["docker", "exec", _WP_CONTAINER, "wp", *wp_args, "--allow-root"]
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except (FileNotFoundError, OSError) as e:
+        logger.warning("wp-cli exec failed (docker missing?): %s", e)
+        return None
+
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        logger.warning("wp-cli command timed out: %s", " ".join(cmd))
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+        return None
+
+    if proc.returncode != 0:
+        logger.warning(
+            "wp-cli command failed (rc=%s): %s | stderr=%s",
+            proc.returncode, " ".join(cmd), stderr.decode("utf-8", "replace").strip(),
+        )
+        return None
+
+    try:
+        data = json.loads(stdout.decode("utf-8", "replace") or "[]")
+    except json.JSONDecodeError as e:
+        logger.warning("wp-cli returned non-JSON output: %s", e)
+        return None
+
+    if not isinstance(data, list):
+        logger.warning("wp-cli JSON was not a list: %r", type(data).__name__)
+        return None
+    return data
+
+
+async def _fetch_products_via_wp_cli() -> Optional[list]:
+    """Fetch products (and variants) from WooCommerce via wp-cli.
+
+    Returns a list shaped like the static fallback catalog, or None on error.
+    """
+    posts = await _run_wp_cli(
+        "post", "list",
+        "--post_type=product",
+        "--format=json",
+    )
+    if posts is None:
+        return None
+
+    products: list = []
+    for post in posts:
+        try:
+            pid = int(post.get("ID"))
+        except (TypeError, ValueError):
+            continue
+        name = post.get("post_title") or ""
+
+        variations = await _run_wp_cli(
+            "post", "list",
+            "--post_type=product_variation",
+            "--format=json",
+            f"--post_parent={pid}",
+        )
+
+        if variations:
+            variants = []
+            for v in variations:
+                try:
+                    vid = int(v.get("ID"))
+                except (TypeError, ValueError):
+                    continue
+                variants.append({
+                    "id": vid,
+                    "sku": v.get("post_name") or f"VAR-{vid}",
+                    "price": 0,
+                    "stock_status": "instock",
+                    "attributes": {},
+                })
+            products.append({
+                "id": pid,
+                "name": name,
+                "type": "variable",
+                "description": post.get("post_excerpt") or "",
+                "images": [],
+                "categories": [],
+                "attributes": [],
+                "variants": variants,
+            })
+        else:
+            products.append({
+                "id": pid,
+                "name": name,
+                "type": "simple",
+                "description": post.get("post_excerpt") or "",
+                "images": [],
+                "categories": [],
+                "price": 0,
+                "stock_status": "instock",
+                "sku": post.get("post_name") or f"PROD-{pid}",
+            })
+
+    return products
+
+
+@app.get("/api/products")
+async def list_products():
+    """Return product catalog for A站 sync_products.py.
+
+    Pulls live data from WooCommerce via products-api.php (PHP + WC API).
+    Falls back to a static demo catalog if the PHP endpoint fails.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                "http://127.0.0.1:8080/wp-content/products-api.php?action=list",
+                headers={"X-API-Key": "apk_b9a7c3d1e5f8024679b1a3c5d7e9f0b1"},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("success") and data.get("products"):
+                    return {"success": True, "products": data["products"], "source": "woocommerce"}
+    except Exception as e:
+        logger.warning("products-api.php failed: %s", e)
+
+    logger.info("products-api.php unavailable, returning fallback catalog")
+    return {"success": True, "products": _FALLBACK_PRODUCTS, "source": "fallback"}
+
+
 @app.api_route("/api/order/{session_id}/cancel", methods=["GET", "POST"])
 async def cancel_order(session_id: str):
     """Cancel an order if it has not yet been paid or fulfilled."""
