@@ -69,6 +69,8 @@ async def sync_order_created(
     items: list,
     status: str = "pending",
     order_id: Optional[int] = None,
+    action_urls: Optional[dict] = None,
+    checkout_url: Optional[str] = None,
 ) -> Optional[str]:
     """订单创建时写入飞书多维表，返回飞书 record_id"""
     try:
@@ -78,17 +80,25 @@ async def sync_order_created(
             "Content-Type": "application/json",
         }
 
-        record = {
-            "fields": {
-                "文本": str(order_id or session_id)[:190],
-                "session_id": session_id,
-                "产品信息": _format_items(items),
-                "总价": total_price,
-                "客户手机": phone,
-                "状态": status,
-                "创建时间": int(time.time()),
-            }
+        fields = {
+            "文本": str(order_id or session_id)[:190],
+            "session_id": session_id,
+            "产品信息": _format_items(items),
+            "总价": total_price,
+            "客户手机": phone,
+            "状态": status,
+            "创建时间": int(time.time()),
         }
+        if action_urls:
+            fields["操作"] = (
+                "取消: " + action_urls.get("cancel", "") + "\n"
+                "刷新: " + action_urls.get("refresh", "") + "\n"
+                "查看: " + action_urls.get("view", "")
+            )
+        if checkout_url:
+            fields["结算链接"] = checkout_url
+
+        record = {"fields": fields}
 
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(

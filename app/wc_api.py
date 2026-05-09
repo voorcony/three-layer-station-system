@@ -67,6 +67,10 @@ async def wc_create_order(
     Returns a dict with success, order_id, session_id, status, total.
     Raises on critical failure (network error or non-2xx response).
     """
+    existing = await wc_get_order(session_id)
+    if existing is not None:
+        raise Exception(f"session_id already exists: {session_id}")
+
     payload = {
         "session_id": session_id,
         "customer_name": customer_name,

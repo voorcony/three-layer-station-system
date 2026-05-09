@@ -156,6 +156,11 @@ async def _create_order_and_variant(req: CreateOrderRequest) -> dict:
         items=req.items,
         status="pending",
         order_id=wc_result.get("order_id"),
+        action_urls={
+            "cancel": f"{BASE_URL}/api/order/{req.session_id}/cancel",
+            "refresh": f"{BASE_URL}/api/order/{req.session_id}/refresh",
+            "view": f"{BASE_URL}/api/orders?session_id={req.session_id}",
+        },
     )
     if feishu_rec_id:
         await wc_update_order(req.session_id, feishu_record_id=feishu_rec_id)
@@ -183,6 +188,11 @@ async def _create_order_and_variant(req: CreateOrderRequest) -> dict:
         "unit_price": match["unit_price"],
         "discount_amount": match["discount"],
         "feishu_synced": bool(feishu_rec_id),
+        "action_urls": {
+            "cancel": f"{BASE_URL}/api/order/{req.session_id}/cancel",
+            "refresh": f"{BASE_URL}/api/order/{req.session_id}/refresh",
+            "view": f"{BASE_URL}/api/orders?session_id={req.session_id}",
+        },
     }
 
 
@@ -430,3 +440,78 @@ async def get_order_api(session_id: str):
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     return order
+
+
+@app.api_route("/api/order/{session_id}/cancel", methods=["GET", "POST"])
+async def cancel_order(session_id: str):
+    """Cancel an order if it has not yet been paid or fulfilled."""
+    order = await wc_get_order(session_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    current_status = order.get("status", "")
+    if current_status in ("paid", "fulfilled"):
+        logger.warning(
+            "Refusing to cancel session %s: order already in status '%s'",
+            session_id, current_status,
+        )
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot cancel order in status '{current_status}'",
+        )
+
+    await wc_update_order(session_id, status="cancelled")
+    await sync_order_updated(
+        session_id=session_id,
+        status="cancelled",
+        feishu_record_id=order.get("feishu_record_id"),
+    )
+
+    logger.info("Order %s cancelled", session_id)
+    return {"status": "ok", "order_status": "cancelled"}
+
+
+@app.api_route("/api/order/{session_id}/refresh", methods=["GET", "POST"])
+async def refresh_order_checkout(session_id: str):
+    """Regenerate the Shopify checkout URL for a not-yet-paid order."""
+    order = await wc_get_order(session_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    current_status = order.get("status", "")
+    if current_status in ("paid", "fulfilled"):
+        logger.warning(
+            "Refusing to refresh session %s: order already in status '%s'",
+            session_id, current_status,
+        )
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot refresh order in status '{current_status}'",
+        )
+
+    # Force regeneration by clearing the existing checkout_created status so
+    # _create_checkout_for_order doesn't short-circuit and return the old URL.
+    if current_status == "checkout_created":
+        await wc_update_order(session_id, status="pending")
+
+    try:
+        checkout_info = await _create_checkout_for_order(session_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to refresh checkout for session %s: %s", session_id, e)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to refresh Shopify checkout: {str(e)}",
+        )
+
+    await wc_update_order(session_id, status="pending")
+    await sync_order_updated(
+        session_id=session_id,
+        status="pending",
+        checkout_url=checkout_info.checkout_url,
+        feishu_record_id=order.get("feishu_record_id"),
+    )
+
+    logger.info("Order %s checkout refreshed: %s", session_id, checkout_info.checkout_url)
+    return {"checkout_url": checkout_info.checkout_url, "status": "ok"}
