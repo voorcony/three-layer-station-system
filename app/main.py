@@ -7,7 +7,8 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 import httpx
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Form
+from fastapi.responses import RedirectResponse, HTMLResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -229,6 +230,70 @@ async def create_checkout_from_a_station(req: CreateOrderRequest):
         "unit_price": checkout_info.unit_price,
         "discount_amount": checkout_info.discount_amount,
     }
+
+
+@app.post("/api/checkout-form")
+async def checkout_form(
+    session_id: str = Form(...),
+    total_price: float = Form(...),
+    items: str = Form(default="[]"),
+    refer: str = Form(default=""),
+    _key: str = Form(default=""),
+):
+    """Browser form POST → create order + Shopify cart → 302 redirect.
+    
+    A站 submits a hidden form to this endpoint instead of fetch + JSON.
+    Browser follows the 302, so Referer header = coolingsheet.shop (B站).
+    This hides A站's domain from Shopify's analytics.
+    """
+    # Validate API key (from form data instead of header for browser navigation)
+    expected = os.getenv("API_AUTH_KEY", "apk_b9a7c3d1e5f80")
+    if _key != expected:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    logger.info(
+        "Form checkout: session=%s total=%.2f refer=%s",
+        session_id, total_price, refer,
+    )
+
+    # Parse items from JSON string
+    parsed_items = json.loads(items) if items and items != "[]" else []
+
+    # Build a minimal CreateOrderRequest-like payload
+    req = CreateOrderRequest(
+        session_id=session_id,
+        total_price=total_price,
+        phone=f"sid_{session_id[:8]}",
+        items=parsed_items,
+        customer_name="",
+    )
+
+    # Create order
+    try:
+        order_data = await _create_order_and_variant(req)
+    except Exception as e:
+        logger.error("Order creation failed for form checkout %s: %s", session_id, e)
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;padding:2rem;text-align:center'><h2>Checkout temporarily unavailable</h2><p>Please try again.</p></body></html>",
+            status_code=502,
+        )
+
+    # Create Shopify checkout
+    try:
+        checkout_info = await _create_checkout_for_order(session_id)
+    except Exception as e:
+        logger.error("Checkout creation failed for form checkout %s: %s", session_id, e)
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;padding:2rem;text-align:center'><h2>Checkout temporarily unavailable</h2><p>Please try again.</p></body></html>",
+            status_code=502,
+        )
+
+    logger.info(
+        "Form checkout redirect: session=%s url=%s",
+        session_id, checkout_info.checkout_url,
+    )
+
+    return RedirectResponse(url=checkout_info.checkout_url, status_code=302)
 
 
 # ---------------------------------------------------------------------------
